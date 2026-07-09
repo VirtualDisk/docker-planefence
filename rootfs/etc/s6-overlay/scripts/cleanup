@@ -265,8 +265,8 @@ while true
 do
   [[ "${LOGLEVEL,,}" != "error" ]] && log_print INFO "Performing a cleanup run..." || true
   CLEANUP
-  GET_ICAO_DB || true
-  GET_AIRLINE_DB || true
+  GET_ICAO_DB || log_print INFO "ICAO to TAIL database update failed; will retry next run"
+  GET_AIRLINE_DB || log_print INFO "Airline database update failed; will retry next run"
   if [[ -n "$MASTODON_SERVER$MASTODON_ACCESS_TOKEN" ]]; then
     { /scripts/masto_expire.sh delete || true; } &
   fi
