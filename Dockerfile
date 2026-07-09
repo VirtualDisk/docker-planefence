@@ -9,6 +9,12 @@ RUN \
     --mount=type=bind,source=./,target=/app/ \
     set -xe && \
     #
+    # Install the Postgres client (psql), used by the send_pa_postgres.sh notifier
+    # to log Plane-Alert detections to a Postgres database for querying/Grafana:
+    apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client && \
+    rm -rf /var/lib/apt/lists/* && \
+    #
     # Install Planefence (it was copied in with /rootfs, so this is
     # mainly moving files to the correct location and creating symlinks):
     chmod a+x /usr/share/planefence/*.sh /usr/share/planefence/*.py /scripts/*.sh && \
