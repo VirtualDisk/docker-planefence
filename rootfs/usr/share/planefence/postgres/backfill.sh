@@ -115,10 +115,12 @@ SQL
     -v squawk="${pa_records["$idx":squawk:value]}"
     -v route="${pa_records["$idx":route]}"
     -v raw="$raw_json"
-    -c "$sql"
   )
 
-  psql "${psql_args[@]}"
+  # psql's -c/--command mode does not perform :'variable' interpolation - only
+  # scripts read via -f or stdin do - so the SQL is piped in rather than passed
+  # via -c.
+  psql "${psql_args[@]}" <<<"$sql"
 }
 
 # Make sure the unique index the ON CONFLICT clause above relies on exists,
@@ -151,11 +153,11 @@ for f in "${files[@]}"; do
   maxidx="${pa_records[maxindex]:--1}"
   for (( idx=0; idx<=maxidx; idx++ )); do
     [[ -n "${pa_records["$idx":icao]+set}" ]] || continue
-    (( total++ ))
+    total=$((total + 1))
     if insert_record "$idx"; then
-      (( inserted++ ))
+      inserted=$((inserted + 1))
     else
-      (( failed++ ))
+      failed=$((failed + 1))
       echo "  FAILED to insert record $idx (${pa_records["$idx":icao]}/${pa_records["$idx":tail]})" >&2
     fi
   done

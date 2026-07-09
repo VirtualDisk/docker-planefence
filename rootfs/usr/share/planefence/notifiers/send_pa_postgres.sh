@@ -109,13 +109,15 @@ SQL
     -v squawk="${pa_records["$idx":squawk:value]}"
     -v route="${pa_records["$idx":route]}"
     -v raw="$raw_json"
-    -c "$sql"
   )
 
   log_print DEBUG "Attempting to insert Plane-Alert record index $idx into Postgres"
 
+  # psql's -c/--command mode does not perform :'variable' interpolation - only
+  # scripts read via -f or stdin do - so the SQL is piped in rather than passed
+  # via -c.
   local outputmsg
-  if outputmsg="$(psql "${psql_args[@]}" 2>&1)"; then
+  if outputmsg="$(psql "${psql_args[@]}" <<<"$sql" 2>&1)"; then
     log_print DEBUG "Postgres insert successful: ${outputmsg//$'\n'/ }"
     return 0
   else
