@@ -434,6 +434,16 @@ configure_planealert "TABLESIZE" "${PA_TABLESIZE:-50}"
 configure_planealert "EXCLUSIONS" "${PA_EXCLUSIONS}"
 #
 # ---------------------------------------------------------------------
+# Postgres logging of Plane-Alert detections (see send_pa_postgres.sh):
+configure_planealert "PA_POSTGRES_URL" "$PA_POSTGRES_URL"
+configure_planealert "PA_POSTGRES_HOST" "$PA_POSTGRES_HOST"
+configure_planealert "PA_POSTGRES_PORT" "${PA_POSTGRES_PORT:-5432}"
+configure_planealert "PA_POSTGRES_USER" "$PA_POSTGRES_USER"
+configure_planealert "PA_POSTGRES_PASSWORD" "$PA_POSTGRES_PASSWORD"
+configure_planealert "PA_POSTGRES_DB" "$PA_POSTGRES_DB"
+configure_planealert "PA_POSTGRES_SSLMODE" "${PA_POSTGRES_SSLMODE:-require}"
+#
+# ---------------------------------------------------------------------
 # Last thing - save the date we processed the config to disk. That way, if ~/.planefence/planefence.conf is changed,
 # we know that we need to re-run this prep routine!
 date +%s >/run/planefence/last-config-change
