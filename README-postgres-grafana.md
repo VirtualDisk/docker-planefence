@@ -13,8 +13,9 @@ outside the scope of this document.
   - [Table of Contents](#table-of-contents)
   - [1. Create the table](#1-create-the-table)
   - [2. Configure Planefence](#2-configure-planefence)
-  - [3. Add Postgres as a Grafana data source](#3-add-postgres-as-a-grafana-data-source)
-  - [4. Example Grafana queries](#4-example-grafana-queries)
+  - [3. Backfill existing detections](#3-backfill-existing-detections)
+  - [4. Add Postgres as a Grafana data source](#4-add-postgres-as-a-grafana-data-source)
+  - [5. Example Grafana queries](#5-example-grafana-queries)
     - [Detections over time](#detections-over-time)
     - [Filter/group by tag](#filtergroup-by-tag)
 - [Summary of License Terms](#summary-of-license-terms)
@@ -61,12 +62,29 @@ Plane-Alert detection is inserted into `pa_detections` on the next Planefence
 cycle (default every 60 seconds), the same way existing notifications (Discord,
 MQTT, etc.) are sent.
 
-## 3. Add Postgres as a Grafana data source
+## 3. Backfill existing detections
+
+`send_pa_postgres.sh` only logs new detections going forward. To load
+everything Planefence already has on disk (all `planefence-records-*.gz`
+files under `RECORDSDIR`, default `/usr/share/planefence/persist/records`),
+run the one-time backfill script inside the container after step 2 is
+configured:
+
+```bash
+docker exec -it <container> /usr/share/planefence/postgres/backfill.sh
+```
+
+It walks every record file and inserts every Plane-Alert record found,
+regardless of notification state. Inserts are deduplicated on
+`(icao, detected_at)`, so it's safe to re-run (e.g. after adding more
+history) without creating duplicate rows.
+
+## 4. Add Postgres as a Grafana data source
 
 In Grafana: **Connections → Data sources → Add data source → PostgreSQL**, then
 point it at the same host/port/database/credentials as `PA_POSTGRES_URL`.
 
-## 4. Example Grafana queries
+## 5. Example Grafana queries
 
 ### Detections over time
 

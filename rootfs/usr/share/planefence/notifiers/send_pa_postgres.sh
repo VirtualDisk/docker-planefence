@@ -73,7 +73,8 @@ INSERT INTO pa_detections (
   NULLIF(:'squawk',''),
   NULLIF(:'route',''),
   NULLIF(:'raw','')::jsonb
-);
+)
+ON CONFLICT (icao, detected_at) DO NOTHING;
 SQL
 )"
 

@@ -33,3 +33,7 @@ CREATE INDEX IF NOT EXISTS pa_detections_detected_at_idx ON pa_detections (detec
 CREATE INDEX IF NOT EXISTS pa_detections_icao_idx        ON pa_detections (icao);
 CREATE INDEX IF NOT EXISTS pa_detections_tail_idx        ON pa_detections (tail);
 CREATE INDEX IF NOT EXISTS pa_detections_tag1_idx        ON pa_detections (tag1);
+
+-- Lets backfill.sh (and repeated live inserts) use ON CONFLICT DO NOTHING to
+-- stay idempotent instead of duplicating rows on re-run.
+CREATE UNIQUE INDEX IF NOT EXISTS pa_detections_icao_detected_at_uidx ON pa_detections (icao, detected_at);
