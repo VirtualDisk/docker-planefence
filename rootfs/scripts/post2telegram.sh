@@ -102,12 +102,16 @@ TEXT="${TEXT:0:$TELEGRAM_MAX_LENGTH}"      # limit to max characters
 TEXT="${TEXT//[[:cntrl:]]/$'\n'}"            # Replace control characters with newlines
 
 # Send images to Telegram if available
-image_count=0
+declare -a valid_images=()
 for image in "${IMAGES[@]}"; do
-  if [[ -n "$image" ]]; then
-    image_count="$((image_count + 1))"  # only count non-empty image paths
+  if [[ -z "$image" ]]; then
+    continue
+  fi
+  if [[ "$image" =~ ^https?:// ]] || [[ -s "$image" ]]; then
+    valid_images+=("$image")
   fi
 done
+image_count="${#valid_images[@]}"
 image_counter=1
 # shellcheck disable=SC2001
 
@@ -119,11 +123,28 @@ if [[ -n "$TAIL" ]]; then image_header+="Tail ${TAIL//#/} - "; fi
 if [[ -n "$ICAO" ]]; then image_header+="ICAO ${ICAO//#/} - "; fi
 if [[ -n "$ROUTE" && "$ROUTE" != "n/a" ]]; then image_header+="${ROUTE//#/} - "; fi
 
-for image in "${IMAGES[@]}"; do
-    # Skip if the image is not a file that exists
-    if [[ -z "$image" ]] || [[ ! -f "$image" ]]; then
+sent_any_image=false
+for image in "${valid_images[@]}"; do
+    # Skip if the image is empty
+    if [[ -z "$image" ]]; then
       continue
     fi
+
+    # Handle external URLs: download them temporarily
+    image_to_use="$image"
+    if [[ "$image" =~ ^https?:// ]] && [[ ! -f "$image" ]]; then
+      tmp_img="/tmp/tg_img_$$.jpg"
+      if curl -m 30 -fsSL --fail "$image" -o "$tmp_img" 2>/dev/null; then
+        image_to_use="$tmp_img"
+      else
+        log_print WARN "Failed to download external image: $image"
+        continue
+      fi
+    elif [[ ! -f "$image" ]]; then
+      # Neither a URL nor a local file
+      continue
+    fi
+
     if (( image_count > 1 )); then
       if ((image_counter == 1 )); then
         image_text="Image $image_counter of $image_count"
@@ -139,7 +160,7 @@ for image in "${IMAGES[@]}"; do
       printf -v curlcmd 'curl --max-time 30 -sSL -X POST %q -F %q -F %q -F %q -F %q' \
         "${TELEGRAM_API}${TELEGRAM_BOT_TOKEN}/sendPhoto" \
         "chat_id=${TELEGRAM_CHAT_ID}" \
-        "photo=@${image}" \
+        "photo=@${image_to_use}" \
         "caption=${image_text}${image_text:+$'\n'}${TEXT}" \
         "parse_mode=HTML"
       # shellcheck disable=SC2090
@@ -149,7 +170,7 @@ for image in "${IMAGES[@]}"; do
       printf -v curlcmd 'curl --max-time 30 -sSL -X POST %q -F %q -F %q -F %q -F %q' \
         "${TELEGRAM_API}${TELEGRAM_BOT_TOKEN}/sendPhoto" \
         "chat_id=${TELEGRAM_CHAT_ID}" \
-        "photo=@${image}" \
+        "photo=@${image_to_use}" \
         "caption=${image_text}" \
         "parse_mode=HTML"
       # shellcheck disable=SC2090
@@ -178,11 +199,15 @@ for image in "${IMAGES[@]}"; do
       fi
     fi
 
+    sent_any_image=true
+
+    # Cleanup temporary external image files
+    [[ "$image_to_use" =~ /tmp/tg_img ]] && rm -f "$image_to_use"
     image_counter=$((image_counter + 1))
 done
 
 # If no images or image sending failed, send text only
-if (( image_count == 0 )); then
+if ! $sent_any_image; then
     printf -v curlcmd 'curl --max-time 30 -sSL -X POST %q -F %q -F %q -F %q' \
       "${TELEGRAM_API}${TELEGRAM_BOT_TOKEN}/sendMessage" \
       "chat_id=${TELEGRAM_CHAT_ID}" \
@@ -191,7 +216,7 @@ if (( image_count == 0 )); then
     # shellcheck disable=SC2090
     response="$(eval "$curlcmd")"
     message_id="$(jq -r '.result.message_id' <<< "$response" 2>/dev/null)"
-    
+
     if [[ -z "$message_id" ]] || [[ "$message_id" == "null" ]]; then
       log_print ERR "Error sending text-only message to Telegram: (original had http instead of hxttp):
         ${response//http/hxttp}

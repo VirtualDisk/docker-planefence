@@ -115,7 +115,7 @@ log_print DEBUG "PA_RANGE=$PA_RANGE"
 sq_string="$(GET_PARAM pa SQUAWKS)"
 if [[ -n "$sq_string" ]]; then
   readarray -d , -t SQUAWKS <<< "$sq_string"
-  if (( ${#SQUAWKS[@]} > 0 )); then 
+  if (( ${#SQUAWKS[@]} > 0 )); then
     SQUAWKS[-1]="${SQUAWKS[-1]%$'\n'}"
     printf -v SQUAWKS_REGEX "%s|" "${SQUAWKS[@]}"
     SQUAWKS_REGEX="${SQUAWKS_REGEX%|}"
@@ -367,7 +367,7 @@ GET_ROUTE_INDIVIDUAL () {
 GET_PA_INFO () {
   local lookup="$1"
   if ! chk_enabled "$PLANEALERT" || [[ -z $lookup ]] || [[ ! -f $PA_FILE ]]; then
-    log_print DEBUG "Plane-Alert: No PA data available for $lookup (PLANEALERT=$PLANEALERT, PA_FILE=$PA_FILE)" 
+    log_print DEBUG "Plane-Alert: No PA data available for $lookup (PLANEALERT=$PLANEALERT, PA_FILE=$PA_FILE)"
     return
   fi
   local header_line
@@ -508,10 +508,14 @@ GET_PS_PHOTO () {
 
   # cache hits
   case "$returntype" in
-    image)     if [[ -f "$jpg"  ]] && (( $(date +%s) - $(stat -c %Y -- "$jpg") < CACHETIME )); then printf '%s\n' "$jpg";  return 0; fi ;;
+    image)     if [[ -s "$jpg"  ]] && (( $(date +%s) - $(stat -c %Y -- "$jpg") < CACHETIME )); then printf '%s\n' "$jpg";  return 0; fi ;;
     link)      if [[ -f "$lnk"  ]] && (( $(date +%s) - $(stat -c %Y -- "$lnk") < CACHETIME )); then cat "$lnk"; return 0; fi ;;
     thumblink) if [[ -f "$tlnk" ]] && (( $(date +%s) - $(stat -c %Y -- "$tlnk") < CACHETIME )); then cat "$tlnk"; return 0; fi ;;
   esac
+
+  if [[ "$returntype" == "image" ]] && [[ -f "$jpg" ]] && [[ ! -s "$jpg" ]]; then
+    rm -f "$jpg"
+  fi
 
   if [[ -f "$na" ]] && (( $(date +%s) - $(stat -c %Y -- "$na") < CACHETIME )); then
     na_fresh=true
@@ -552,12 +556,21 @@ GET_PS_PHOTO () {
   fi
 
   if $got_photo; then
-    curl -m 30 -fsSL --fail "$thumb" > "$jpg" 2>/dev/null || :
+    # Try to cache the thumbnail image locally, but don't fail if external URL can't be downloaded
+    if [[ "$thumb" =~ ^https?:// ]]; then
+      curl -A "$pf_ua" -m 30 -fsSL --fail "$thumb" > "$jpg" 2>/dev/null || :
+      # For external images, if cache download fails, that's OK - we'll use the external URL directly
+      [[ -f "$jpg" ]] || jpg=""  # Clear jpg if download failed, fall back to using link URL
+    else
+      # For local or already-cached images, require successful download
+      curl -A "$pf_ua" -m 30 -fsSL --fail "$thumb" > "$jpg" 2>/dev/null || return 1
+    fi
+
     printf '%s\n' "$link"  >"$lnk"
     printf '%s\n' "$thumb" >"$tlnk"
 
     case "$returntype" in
-      image)     printf '%s\n' "$jpg"  ;;
+      image)     printf '%s\n' "${jpg:-}"  ;;
       link)      printf '%s\n' "$link" ;;
       thumblink) printf '%s\n' "$thumb";;
     esac
@@ -838,7 +851,7 @@ to_epoch() {
 }
 
 GENERATE_PF_CSV() {
-  # This looks complex but is highly opimized for speed by using awk for the heavy lifting.
+  # This looks complex but is highly optimized for speed by using awk for the heavy lifting.
   local tmpfile="$(mktemp)"
   local re
   local k
@@ -922,7 +935,7 @@ GENERATE_PF_CSV() {
 }
 
 GENERATE_PA_CSV() {
-  # This looks complex but is highly opimized for speed by using awk for the heavy lifting.
+  # This looks complex but is highly optimized for speed by using awk for the heavy lifting.
   local tmpfile="$(mktemp)"
   local re
   local k
@@ -1200,7 +1213,7 @@ fi
 
 if chk_enabled "$PLANEALERT"; then
   awk -F',' 'NR>1 {print "^" $1 "," }' "$PA_FILE" > /tmp/pa_keys_$$ 2>/dev/null || touch /tmp/pa_keys_$$
-  if (( ${#SQUAWKS[@]} > 0 )); then 
+  if (( ${#SQUAWKS[@]} > 0 )); then
     # shellcheck disable=SC2046
     printf "^([^,]*,){8}%s(,|$)\n" "${SQUAWKS[@]}" >> /tmp/pa_keys_$$
   fi
@@ -1389,7 +1402,7 @@ for line in "${socketrecords[@]}"; do
   fi
 
   # For plane-alert, always collapse into an existing record if any was available today
-  if [[ " ${pa_icaos[*]} " == *" $icao "* || "${pa_squawkmatch["$icao"]}" == "true" ]]; then    
+  if [[ " ${pa_icaos[*]} " == *" $icao "* || "${pa_squawkmatch["$icao"]}" == "true" ]]; then
     pa_idx="${pa_last_idx_for_icao["$icao"]}"
     # Create new idx if none found or if last seen was before today
     if [[ -z "$pa_idx" || ${pa_records["$pa_idx":time:lastseen]:-0} -lt $midnight_epoch ]]; then
@@ -1421,7 +1434,7 @@ for line in "${socketrecords[@]}"; do
           records["$idx":link:faa]="https://wwwapps.tc.gc.ca/saf-sec-sur/2/ccarcs-riacc/RchSimpRes.aspx?m=%7c${t//-/}%7c"
         fi
         # map link at first touch
-        if [[ "${TRACKSERVICE,,}" == "flightaware" ]]; then 
+        if [[ "${TRACKSERVICE,,}" == "flightaware" ]]; then
           records["$idx":link:map]="$TRACKURL/${records["$idx":tail]}"
         else
           if [[ -n $lat && -n $lon ]]; then
@@ -1562,7 +1575,7 @@ for line in "${socketrecords[@]}"; do
       pa_records["$pa_idx":tail]="$(GET_TAIL "$icao")"
       pa_records["$pa_idx":checked:tail]=true
       # map link at first touch
-      if [[ "${TRACKSERVICE,,}" == "flightaware" ]]; then 
+      if [[ "${TRACKSERVICE,,}" == "flightaware" ]]; then
         pa_records["$pa_idx":link:map]="$TRACKURL/${pa_records["$pa_idx":tail]}"
       else
         if [[ -n $lat && -n $lon ]]; then
@@ -1749,7 +1762,7 @@ for idx in "${!processed_indices[@]}"; do
           if [[ -s /tmp/.allnoise ]]; then noiselist="$(</tmp/.allnoise)"; else REMOTENOISE=""; fi
           rm -f /tmp/.allnoise
         fi
-        if [[ -n "$REMOTENOISE" ]]; then 
+        if [[ -n "$REMOTENOISE" ]]; then
           noisedate="$(awk -F'[.-]' '($1=="noisecapt" && $2 ~ /^[0-9]{6}$/ && $2>m){m=$2} END{if(m!="")print m}' <<< "$noiselist")"
           noisedate="${noisedate:-$TODAY}"
           read -r records["$idx":sound:peak] records["$idx":sound:1min] records["$idx":sound:5min] records["$idx":sound:10min] records["$idx":sound:1hour] records["$idx":sound:loudness] records["$idx":sound:color] <<< "$(GET_NOISEDATA "${records["$idx":time:firstseen]}" "${records["$idx":time:lastseen]}")"
@@ -1888,10 +1901,10 @@ pa_records["station:myurl"]="$MYURL"
 pa_records["station:me"]="$MY"
 pa_records["station:myurl"]="$MYURL"
 pa_records["station:motd"]="$PA_MOTD"
-if [[ "$PA_RANGE" != "999999" ]]; then 
+if [[ "$PA_RANGE" != "999999" ]]; then
   pa_records["station:range"]="$PA_RANGE"
-else 
-  pa_records["station:range"]="-1"; 
+else
+  pa_records["station:range"]="-1";
 fi
 pa_records["LASTUPDATE"]="$NOWTIME"
 
@@ -1919,7 +1932,7 @@ if chk_enabled "$PLANEFENCE"; then
   } &
 fi
 if chk_enabled "$PLANEALERT"; then
-  if chk_enabled "$GENERATE_CSV"; then  
+  if chk_enabled "$GENERATE_CSV"; then
     { GENERATE_PA_CSV
       log_print DEBUG "Wrote PA CSV object to ${PA_CSVOUT}"
     } &

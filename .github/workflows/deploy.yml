@@ -21,7 +21,7 @@ on:
   pull_request:
     types: [closed]
     branches:
-     - main
+      - main
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -34,7 +34,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.reason != ''
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Log dispatch reason
         env:
@@ -51,7 +51,7 @@ jobs:
     if: |
       github.event.inputs.build_latest_as_test == 'false' ||
       github.event.inputs.build_latest_as_test == ''
-    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/sdre.yml@main
+    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/sdre.yml@d99ce7f631ca56901a4aecca25d5c6e4b0a7e2f1 # main
     with:
       push_enabled: true
       push_destinations: ghcr.io

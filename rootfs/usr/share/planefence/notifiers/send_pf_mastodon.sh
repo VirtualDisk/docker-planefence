@@ -22,7 +22,7 @@ source /scripts/pf-common
 source /usr/share/planefence/planefence.conf
 
 exec 2>/dev/stderr  # we need to do this because stderr is redirected to &1 in /scripts/pfcommon <-- /scripts/common
-                    # Normally this isn't an issue, but post2bsky is called from another script, and we don't want to polute the returns with info text
+                    # Normally this isn't an issue, but post2bsky is called from another script, and we don't want to pollute the returns with info text
 
 
 # shellcheck disable=SC2034
@@ -111,7 +111,7 @@ for idx in "${INDEX[@]}"; do
   template="$(template_replace "||CALLSIGN||" "${records["$idx":callsign]//-/}" "$template")"
   template="$(template_replace "||TAIL||" "$([[ "${records["$idx":tail]//-/}" != "${records["$idx":callsign]//-/}" ]] && echo "#${records["$idx":tail]//-/}" || true)" "$template")"
   template="$(template_replace "||TYPE||" "${records["$idx":type]}" "$template")"
-  if [[ "${records["$idx":route]}" != "n/a" ]]; then 
+  if [[ "${records["$idx":route]}" != "n/a" ]]; then
     template="$(template_replace "||ROUTE||" "#${records["$idx":route]}" "$template")"
   else
     template="$(template_replace "||ROUTE||" "" "$template")"
@@ -135,6 +135,8 @@ for idx in "${INDEX[@]}"; do
   img_array=()
   if [[ -n "${records["$idx":image:file]}" && -f "${records["$idx":image:file]}" ]]; then
     img_array+=("${records["$idx":image:file]}")
+  elif [[ -n "${records["$idx":image:link]}" ]]; then
+    img_array+=("${records["$idx":image:link]}")
   fi
   if [[ -n "${records["$idx":screenshot:file]}" && -f "${records["$idx":screenshot:file]}" ]]; then
     img_array+=("${records["$idx":screenshot:file]}")
